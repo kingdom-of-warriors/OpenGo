@@ -436,8 +436,8 @@ def main():
     
     # 使用配置1处理数据
     parse_multiple_sgf_files_batched(
-        sgf_dir="../go-dataset", 
-        output_dir="data_history_12",
+        sgf_dir="/mnt/petrelfs/lijiarui/OpenGo/GoDataset/AI", 
+        output_dir="/mnt/petrelfs/lijiarui/OpenGo/GoDataset/AI_pt",
         feature_config=config_history_12,
         batch_size=1000,
         batch_num=50
