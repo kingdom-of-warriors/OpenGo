@@ -9,9 +9,9 @@ def parse_args():
                        default='resnet', help='模型类型 (resnet 或 transformer)')
     parser.add_argument('--lr', type=float, default=0.001, 
                        help='学习率 (默认: 0.001)')
-    parser.add_argument('--data_num', type=int, default=3, 
-                       help='数据集数量 (默认: 3)')
-    parser.add_argument('--input_channels', type=int, default=19, help='输入通道数 (默认: 19)')
+    parser.add_argument('--data_num', type=int, default=10, 
+                       help='数据集数量')
+    parser.add_argument('--input_channels', type=int, default=27, help='输入通道数 (默认: 19)')
     
     # 可选参数
     parser.add_argument('--batch_size', type=int, default=128, 
@@ -20,8 +20,8 @@ def parse_args():
                        help='训练轮数 (默认: 100)')
     parser.add_argument('--weight_decay', type=float, default=1e-4, 
                        help='权重衰减 (默认: 1e-4)')
-    parser.add_argument('--data_dir', type=str, default='my_godata/data_with_history', 
-                       help='数据集目录 (默认: my_godata/data_with_history)')
+    parser.add_argument('--data_dir', type=str, default='GoDataset/AI_pt', 
+                       help='数据集目录')
     parser.add_argument('--scheduler', type=str, default='steplr')
     
     # ResNet 特定参数

@@ -1,14 +1,17 @@
 import torch
 from torch.nn.utils import clip_grad_norm_
 import torch.distributed as dist
+from tqdm import tqdm
 
 def train_epoch(model, train_loader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
     correct = 0
     total = 0
-    
-    for batch_idx, batch in enumerate(train_loader):
+    if dist.get_rank() == 0:
+        train_loader = tqdm(train_loader, desc="Training", leave=False)
+
+    for batch in train_loader:
         boards = batch['board'].float().to(device)
         move_idx = batch['move'].to(device)
         

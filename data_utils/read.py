@@ -13,8 +13,8 @@ from utils import cal_liberity, find_valid
 class FeatureConfig:
     """特征配置类"""
     enable_history: bool = True         # 历史信息（必须启用）
-    enable_liberty: bool = True         # 气数特征
-    enable_valid_moves: bool = True     # 可落子位置特征
+    enable_liberty: bool = False         # 气数特征
+    enable_valid_moves: bool = False     # 可落子位置特征
     history_length: int = 8             # 历史长度
     
     def __post_init__(self):

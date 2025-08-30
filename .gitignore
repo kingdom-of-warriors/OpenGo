@@ -1,5 +1,8 @@
 # Dataset
 GoDataset/
 
-# cache
+# Cache
 __pycache__/
+
+# Model
+checkpoints/

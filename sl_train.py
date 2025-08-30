@@ -39,7 +39,6 @@ def main():
     # 初始化DDP
     setup_ddp(local_rank, world_size)
 
-    # --- 只有主进程(rank=0)才打印信息和保存模型 ---
     if local_rank == 0:
         print("--- 训练参数 ---")
         for arg in vars(args):
@@ -70,12 +69,10 @@ def main():
         print(f"数据集大小: 训练={len(train_dataset)}, 验证={len(val_dataset)}, 测试={len(test_dataset)}")
 
     # 3. 创建模型和优化器
-    # device现在是每个进程对应的GPUs
     device = torch.device("cuda", local_rank)
     model = create_model(args, device) 
     
     # ===> DDP变更 5: 使用DDP包装模型 <===
-    # DDP会自动处理梯度同步
     model = DDP(model, device_ids=[local_rank], output_device=local_rank)
     
     criterion = nn.CrossEntropyLoss()
