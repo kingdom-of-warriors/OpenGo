@@ -5,4 +5,4 @@ GoDataset/
 __pycache__/
 
 # Model
-checkpoints/
+ckpt/

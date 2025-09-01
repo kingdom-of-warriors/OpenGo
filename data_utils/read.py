@@ -61,52 +61,37 @@ class HistoryFeatureExtractor(FeatureExtractor):
                 black_board: torch.Tensor, 
                 white_board: torch.Tensor, 
                 current_color: str, 
-                board_history: List[Dict[str, Union[torch.Tensor, str]]],
-                **kwargs) -> torch.Tensor:
+                board_history: List[Dict[str, Union[torch.Tensor, str]]]) -> torch.Tensor:
         
-        # 当前棋盘状态 (3个通道) + 历史状态 (history_length * 2个通道)
         total_channels = 3 + self.history_length * 2
         features = torch.zeros(total_channels, 19, 19)
         
-        # 当前棋盘状态 (前3个通道)
         if current_color == 'B':
-            features[0] = black_board    # 我方棋子（黑棋）
-            features[1] = white_board    # 敌方棋子（白棋）
-            features[2] = torch.ones(19, 19)  # 下一手标识（黑方下棋）
-        else:
-            features[0] = white_board    # 我方棋子（白棋）
-            features[1] = black_board    # 敌方棋子（黑棋）
-            features[2] = torch.zeros(19, 19)  # 下一手标识（白方下棋）
-        
-        # 历史状态 (通道3开始，共history_length * 2个通道)
-        for t in range(self.history_length):
-            history_idx = len(board_history) - 1 - t
-            channel_idx_player = 3 + t * 2
-            channel_idx_opponent = 3 + t * 2 + 1
+            # 当前视角是黑棋
+            features[0] = black_board
+            features[1] = white_board
+            features[2] = torch.ones(19, 19)
             
-            if history_idx >= 0:
-                hist_black = board_history[history_idx]['black']
-                hist_white = board_history[history_idx]['white']
-                hist_color = board_history[history_idx]['move_color']
+            for t in range(self.history_length):
+                history_idx = len(board_history) - 1 - t
+                if history_idx >= 0:
+                    hist_state = board_history[history_idx]
+                    features[3 + t * 2]     = hist_state['black']
+                    features[3 + t * 2 + 1] = hist_state['white']
                 
-                if current_color == 'B':
-                    if hist_color == 'B':
-                        features[channel_idx_player] = hist_black
-                        features[channel_idx_opponent] = hist_white
-                    else:
-                        features[channel_idx_player] = hist_white
-                        features[channel_idx_opponent] = hist_black
-                else:
-                    if hist_color == 'W':
-                        features[channel_idx_player] = hist_white
-                        features[channel_idx_opponent] = hist_black
-                    else:
-                        features[channel_idx_player] = hist_black
-                        features[channel_idx_opponent] = hist_white
-            else:
-                features[channel_idx_player] = torch.zeros((19, 19), dtype=torch.uint8)
-                features[channel_idx_opponent] = torch.zeros((19, 19), dtype=torch.uint8)
-        
+        else:
+            # 当前视角是白棋
+            features[0] = white_board
+            features[1] = black_board
+            features[2] = torch.zeros(19, 19)
+            
+            for t in range(self.history_length):
+                history_idx = len(board_history) - 1 - t
+                if history_idx >= 0:
+                    hist_state = board_history[history_idx]
+                    features[3 + t * 2]     = hist_state['white']
+                    features[3 + t * 2 + 1] = hist_state['black']
+
         return features
     
     @property
@@ -214,13 +199,9 @@ class SGFParser:
     
     def parse_sgf_file(self, sgf_path: str) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """解析SGF文件"""
-        with open(sgf_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        with open(sgf_path, 'r', encoding='utf-8') as f: content = f.read()
         
-        # 提取着法序列
         moves = self.extract_moves(content)
-        
-        # 生成训练数据
         boards, move_indices, colors = self.generate_training_data_with_features(moves)
         return boards, move_indices, colors
     
@@ -228,10 +209,8 @@ class SGFParser:
         """从SGF内容中提取着法"""
         pattern = r';([BW])\[([a-s]{2})\]'
         matches = re.findall(pattern, sgf_content)
-        
         moves = []
-        for color, coord in matches:
-            moves.append((color, coord))
+        for color, coord in matches: moves.append((color, coord))
         
         return moves
     

@@ -85,7 +85,7 @@ def main():
     # 4. 训练主循环
     best_val_acc = 0.0
     if local_rank == 0:
-        checkpoint_dir = f'checkpoints/{args.model}'
+        checkpoint_dir = f'ckpt/{args.model}'
         os.makedirs(checkpoint_dir, exist_ok=True)
         print("\n--- 开始DDP训练 ---")
         
