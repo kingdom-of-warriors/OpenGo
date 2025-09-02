@@ -59,5 +59,5 @@ def process_files_to_sgf(input_folder: str, output_folder: str):
 
 if __name__ == "__main__":
     INPUT_DIRECTORY = "GoDataset/AI/" 
-    OUTPUT_DIRECTORY = "GoDataset/kifu2sgf"
+    OUTPUT_DIRECTORY = "GoDataset/AI/kifu2sgf"
     process_files_to_sgf(INPUT_DIRECTORY, OUTPUT_DIRECTORY)

@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import os
 import random
+from datetime import datetime
 
 from models.policy_networks import create_model
 from config import parse_args
@@ -14,7 +15,7 @@ from dlgo.scoring import compute_game_result
 device = "cuda" if torch.cuda.is_available() else "cpu"
 args = parse_args()
 model = create_model(args, device)
-ckpt_path = "ckpt/resnet/test1.pth"
+ckpt_path = "ckpt/AI_Human_12_192.pth"
 checkpoint = torch.load(ckpt_path, map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
@@ -25,7 +26,77 @@ class GoGameEvaluator:
         self.device = device
         self.board_size = board_size
         self.game_history = []  # 存储历史棋盘状态
+        self.move_history = []  # 存储着法历史，用于生成SGF
+    
+    # 需要修复！
+    def point_to_sgf_coord(self, point):
+        """将Point坐标转换为SGF格式坐标"""
+        if point is None: return ""
+        import ipdb; ipdb.set_trace()
+        # SGF坐标：a-s (跳过i)，从左上角开始
+        col_chars = "abcdefghjklmnopqrst"  # 19个字符，索引0-18
+        row_chars = "tsrqponmlkjhgfedcba"  # 19个字符，索引0-18
+        # point.col 是 1-19，需要转换为 0-18 的索引
+        sgf_col = col_chars[point.col - 1]
+        sgf_row = row_chars[point.row]
         
+        return sgf_col + sgf_row
+    
+    def save_sgf(self, human_player, ai_player, game_result=None, filename=None):
+        """保存对局为SGF文件"""
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"game_{timestamp}.sgf"
+        
+        # 确保保存目录存在
+        os.makedirs("saved_games", exist_ok=True)
+        filepath = os.path.join("saved_games", filename)
+        
+        sgf_content = []
+        # SGF头信息
+        sgf_content.append("(;GM[1]FF[4]SZ[19]")
+        sgf_content.append(f"DT[{datetime.now().strftime('%Y-%m-%d')}]")
+        sgf_content.append("AP[OpenGo:1.0]")
+        sgf_content.append("RU[Chinese]")
+        sgf_content.append("KM[7.5]")
+        if human_player == Player.black:
+            sgf_content.append("PB[Human]")
+            sgf_content.append("PW[OpenGo AI]")
+        else:
+            sgf_content.append("PB[OpenGo AI]")
+            sgf_content.append("PW[Human]")
+        
+        # 对局结果
+        if game_result:
+            if game_result.winner == Player.black:
+                result_str = f"B+{game_result.winning_margin:.1f}"
+            else:
+                result_str = f"W+{game_result.winning_margin:.1f}"
+            sgf_content.append(f"RE[{result_str}]")
+        
+        # 着法序列
+        sgf_moves = []
+        for player, move in self.move_history:
+            if move.is_pass:
+                move_str = f";{player.name[0].upper()}[]"
+            else:
+                coord = self.point_to_sgf_coord(move.point)
+                move_str = f";{player.name[0].upper()}[{coord}]"
+            sgf_moves.append(move_str)
+        
+        # 组合完整的SGF
+        full_sgf = "".join(sgf_content) + "".join(sgf_moves) + ")"
+        
+        # 写入文件
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(full_sgf)
+            print(f"✅ 棋谱已保存到: {filepath}")
+            return filepath
+        except Exception as e:
+            print(f"❌ 保存棋谱失败: {e}")
+            return None
+    
     def print_board(self, board):
         """美观地打印棋盘"""
         print('   A B C D E F G H J K L M N O P Q R S T')
@@ -99,13 +170,9 @@ class GoGameEvaluator:
         
         # 获取模型输入
         input_tensor = self.game_state_to_tensor(game_state)
-        
         with torch.no_grad():
-            # 模型预测
             policy_logits = self.model(input_tensor)  # (1, 361)
             policy_probs = torch.softmax(policy_logits, dim=1).cpu().numpy()[0]
-        
-        # 将361维输出转换为19x19坐标
         policy_2d = policy_probs.reshape(19, 19)
         
         # 获取合法落子位置
@@ -116,37 +183,32 @@ class GoGameEvaluator:
                 if game_state.is_valid_move(move):
                     legal_moves.append((row, col, policy_2d[row-1, col-1]))
         
-        if not legal_moves:
-            return Move.pass_turn()
-        
-        # 选择概率最高的合法落子
+        if not legal_moves: return Move.pass_turn()
         legal_moves.sort(key=lambda x: x[2], reverse=True)
         best_row, best_col, prob = legal_moves[0]
+        # 跳过 'I' 列
+        def col_to_display_char(col):
+            if col <= 8: return chr(ord('A') + col - 1) # A-H
+            else: return chr(ord('A') + col) # J-T
         
-        print(f"AI选择落子: {chr(ord('A') + best_col - 1)}{20 - best_row} (概率: {prob:.3f})")
+        display_col = col_to_display_char(best_col)
+        print(f"AI选择落子: {display_col}{best_row} (概率: {prob:.3f})")
         return Move.play(Point(row=best_row, col=best_col))
     
     def parse_human_move(self, move_str):
         """解析人类输入的落子格式，如 'D4' 或 'pass'"""
-        move_str = move_str.strip().upper()
-        
-        if move_str == 'PASS':
-            return Move.pass_turn()
-        
-        if len(move_str) < 2:
-            return None
+        move_str = move_str.strip().upper() # 变成大写
+        if move_str == 'PASS': return Move.pass_turn()
+        if len(move_str) < 2: return None
             
         try:
             col_char = move_str[0]
             row_str = move_str[1:]
             
             # 跳过 'I' 列
-            if col_char >= 'I':
-                col = ord(col_char) - ord('A')
-            else:
-                col = ord(col_char) - ord('A') + 1
-                
-            row = 20 - int(row_str)  # 转换为dlgo坐标系
+            if col_char >= 'I': col = ord(col_char) - ord('A')
+            else: col = ord(col_char) - ord('A') + 1
+            row = int(row_str)
             
             if 1 <= row <= 19 and 1 <= col <= 19:
                 return Move.play(Point(row=row, col=col))
@@ -159,7 +221,7 @@ class GoGameEvaluator:
         """人机对弈主函数"""
         print("=== 围棋人机对弈 ===")
         print("输入格式: 如 'D4', 'K10' 等，或输入 'pass' 跳过")
-        print("输入 'quit' 退出游戏")
+        print("输入 'quit' 退出游戏，输入 'save' 保存当前棋谱")
         print()
         
         # 询问人类执什么颜色
@@ -178,9 +240,13 @@ class GoGameEvaluator:
         
         # 初始化游戏
         game = GameState.new_game(19)
+        self.move_history = []  # 重置着法历史
+        
         print(f"\n你执{'黑棋' if human_player == Player.black else '白棋'}，AI执{'白棋' if ai_player == Player.white else '黑棋'}")
         print("\n初始棋盘:")
         self.print_board(game.board)
+        
+        game_ended_manually = False
         
         while not game.is_over():
             print(f"\n轮到{'黑棋' if game.next_player == Player.black else '白棋'}:")
@@ -188,11 +254,16 @@ class GoGameEvaluator:
             if game.next_player == human_player:
                 # 人类回合
                 while True:
-                    move_input = input("请输入你的落子 (如D4, 或pass): ").strip()
+                    move_input = input("请输入你的落子 (如D4, pass, save, quit): ").strip()
                     
                     if move_input.lower() == 'quit':
-                        print("游戏结束!")
-                        return
+                        game_ended_manually = True
+                        break
+                    
+                    if move_input.lower() == 'save':
+                        # 保存当前棋谱
+                        self.save_sgf(human_player, ai_player)
+                        continue
                     
                     move = self.parse_human_move(move_input)
                     if move is None:
@@ -200,34 +271,62 @@ class GoGameEvaluator:
                         continue
                     
                     if game.is_valid_move(move):
+                        # 记录着法
+                        self.move_history.append((game.next_player, move))
                         game = game.apply_move(move)
                         break
                     else:
                         print("非法落子，请重新输入!")
+                
+                if game_ended_manually:
+                    break
+                    
             else:
-                # AI回合
                 print("AI思考中...")
                 move = self.get_model_move(game)
+                self.move_history.append((game.next_player, move))
                 game = game.apply_move(move)
                 
-                if move.is_pass:
-                    print("AI选择 PASS")
+                if move.is_pass: print("AI选择 PASS")
             
             print("\n当前棋盘:")
             self.print_board(game.board)
-        
-        # 游戏结束，计算得分
         print("\n=== 游戏结束 ===")
-        try:
-            game_result = compute_game_result(game)
-            winner_str = "黑棋" if game_result.winner == Player.black else "白棋"
-            
-            if game_result.winner == human_player:
-                print(f"🎉 恭喜！你获胜了！({winner_str} 胜 {game_result.winning_margin} 目)")
-            else:
-                print(f"😔 AI获胜了！({winner_str} 胜 {game_result.winning_margin} 目)")
-        except:
-            print("无法计算得分，游戏结束。")
+        
+        game_result = None
+        if not game_ended_manually:
+            # 自动结束，尝试计算得分
+            try:
+                game_result = compute_game_result(game)
+                winner_str = "黑棋" if game_result.winner == Player.black else "白棋"
+                
+                if game_result.winner == human_player:
+                    print(f"🎉 恭喜！你获胜了！({winner_str} 胜 {game_result.winning_margin:.1f} 目)")
+                else:
+                    print(f"😔 AI获胜了！({winner_str} 胜 {game_result.winning_margin:.1f} 目)")
+            except Exception as e:
+                print(f"无法计算得分: {e}")
+        else:
+            print("游戏被手动结束")
+        
+        # 询问是否保存棋谱
+        if self.move_history:  # 只有有着法时才保存
+            while True:
+                save_choice = input("\n是否保存棋谱到SGF文件? (y/n): ").strip().lower()
+                if save_choice in ['y', 'yes']:
+                    # 询问文件名
+                    filename_input = input("请输入文件名(留空使用默认名称): ").strip()
+                    filename = filename_input if filename_input else None
+                    
+                    saved_path = self.save_sgf(human_player, ai_player, game_result, filename)
+                    if saved_path:
+                        print(f"棋谱已保存!")
+                    break
+                elif save_choice in ['n', 'no']:
+                    print("棋谱未保存")
+                    break
+                else:
+                    print("请输入 'y' 或 'n'")
 
 def main():
     evaluator = GoGameEvaluator(model, device)
