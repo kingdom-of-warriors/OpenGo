@@ -15,25 +15,21 @@ def find_valid(board: torch.Tensor) -> torch.Tensor:
         valid_mask: torch.Tensor, shape (19, 19), dtype=torch.uint8
                     1表示可以落子，0表示不能落子
     """
-    # 规则1: 已经有棋子的点不能再下
+    # 已经有棋子的点不能再下
     occupied = board[0] + board[1]
     valid_mask = (occupied == 0).to(torch.uint8)
 
-    # 规则2: 找出被对方棋子完全包围的“禁入点”
+    # 找出被对方棋子完全包围的“禁入点”
     kernel = torch.tensor([[0, 1, 0], 
                            [1, 0, 1], 
                            [0, 1, 0]], dtype=torch.float32, device=board.device)
     kernel = kernel.view(1, 1, 3, 3)
-
-    # 2. 计算每个点的邻居总数 (处理边界和角落)
     ones_board = torch.ones(1, 1, 19, 19, dtype=torch.float32, device=board.device)
     total_neighbor_count = F.conv2d(ones_board, kernel, padding=1).squeeze()
-
-    # 3. 计算每个点周围有多少个是对手的棋子
     opponent_board = board[1].unsqueeze(0).unsqueeze(0).float()
     opponent_neighbor_count = F.conv2d(opponent_board, kernel, padding=1).squeeze()
 
-    # 4. 找出禁入点：一个点的邻居总数 == 它的对手邻居数 这意味着它被对手的棋子完全包围了
+    # 一个点的邻居总数 == 它的对手邻居数
     forbidden_points = (total_neighbor_count == opponent_neighbor_count)
     invalid_positions = (valid_mask == 1) & forbidden_points
     valid_mask[invalid_positions] = 0

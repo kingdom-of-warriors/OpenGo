@@ -5,8 +5,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='围棋策略网络训练')
     
     # 必需参数
-    parser.add_argument('--model', type=str, choices=['resnet', 'transformer'], 
-                       default='resnet', help='模型类型 (resnet 或 transformer)')
+    parser.add_argument('--model', type=str, choices=['resnet'], 
+                       default='resnet', help='模型类型 (resnet)')
     parser.add_argument('--lr', type=float, default=0.001, 
                        help='学习率 (默认: 0.001)')
     parser.add_argument('--data_num', type=int, default=10, 
@@ -23,23 +23,13 @@ def parse_args():
     parser.add_argument('--data_dir', type=str, default='GoDataset/AI_pt', 
                        help='数据集目录')
     parser.add_argument('--scheduler', type=str, default='steplr')
+    parser.add_argument('--ckpt_dir', type=str, default='ckpt/')
     
     # ResNet 特定参数
     parser.add_argument('--resnet_blocks', type=int, default=8, 
                        help='ResNet 残差块数量 (默认: 8)')
     parser.add_argument('--resnet_filters', type=int, default=128, 
                        help='ResNet 滤波器数量 (默认: 128)')
-    
-    # Transformer 特定参数
-    parser.add_argument('--d_model', type=int, default=128, 
-                       help='Transformer 嵌入维度 (默认: 128)')
-    parser.add_argument('--n_head', type=int, default=8, 
-                       help='Transformer 注意力头数 (默认: 8)')
-    parser.add_argument('--transformer_layers', type=int, default=6, 
-                       help='Transformer 编码器层数 (默认: 6)')
-    parser.add_argument('--dim_feedforward', type=int, default=512, 
-                       help='Transformer 前馈网络维度 (默认: 512)')
-    parser.add_argument('--dropout', type=float, default=0.2, 
-                       help='Transformer dropout率 (默认: 0.2)')
+
     
     return parser.parse_args()

@@ -67,86 +67,6 @@ class PolicyNetwork_resnet(nn.Module):
 
         return policy_logits
 
-
-class PolicyNetwork_transformer(nn.Module):
-    """
-    基于Transformer架构的围棋策略网络。
-    """
-    def __init__(self, 
-                 input_channels: int = 19, 
-                 board_size: int = 19,
-                 d_model: int = 128,          # 嵌入向量的维度
-                 n_head: int = 8,             # 多头注意力的头数
-                 num_encoder_layers: int = 6, # Transformer编码器的层数
-                 dim_feedforward: int = 512,  # 前馈网络中间层的维度
-                 dropout: float = 0.1):
-        
-        super(PolicyNetwork_transformer, self).__init__()
-        
-        self.board_size = board_size
-        self.num_tokens = board_size * board_size # 19 * 19 = 361
-        
-        # 线性投射层，将19维的输入特征嵌入到d_model维
-        self.embedding = nn.Linear(input_channels, d_model)
-        self.positional_encoding = nn.Parameter(torch.zeros(1, self.num_tokens, d_model))
-        self.pre_ln = nn.LayerNorm(d_model) # before transformer
-        self.post_ln = nn.LayerNorm(d_model) # after transformer
-        self.dropout = nn.Dropout(dropout)
-
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=n_head,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout,
-            activation='relu',
-            batch_first=True
-        )
-        # 将多个编码器层堆叠起来
-        self.transformer_encoder = nn.TransformerEncoder(
-            encoder_layer=encoder_layer,
-            num_layers=num_encoder_layers
-        )
-        
-        # --- 3. 尾部：策略头 ---
-        # 将经过Transformer处理的d_model维特征向量，映射回一个代表logit的标量
-        self.policy_head = nn.Linear(d_model, 1)
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        """
-        定义并应用权重初始化方案。
-        """
-        # 如果是线性层
-        if isinstance(module, nn.Linear):
-            nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-        # 如果是层归一化层
-        elif isinstance(module, nn.LayerNorm):
-            nn.init.zeros_(module.bias)
-            nn.init.ones_(module.weight)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # 输入 x 的形状: [Batch, Channels, Height, Width] -> [B, 19, 19, 19]
-        bs = x.shape[0]
-
-        x = x.view(bs, x.size(1), -1).permute(0, 2, 1)
-        # c. 线性嵌入
-        x = self.embedding(x)
-        x = x + self.positional_encoding
-
-        # 归一化
-        x = self.pre_ln(x)
-        x = self.dropout(x)
-
-        # [B, 361, d_model] -> [B, 361, d_model]
-        x = self.transformer_encoder(x)
-        
-        # [B, 361, d_model] -> [B, 361, 1] -> [B, 361]
-        x = self.post_ln(x)
-        policy_logits = self.policy_head(x).squeeze(-1)
-        
-        return policy_logits
     
 
 def create_model(args, device):
@@ -156,16 +76,6 @@ def create_model(args, device):
             input_channels=args.input_channels, 
             num_residual_blocks=args.resnet_blocks, 
             num_filters=args.resnet_filters
-        )
-    elif args.model == 'transformer':
-        model = PolicyNetwork_transformer(
-            input_channels=19,
-            board_size=19,
-            d_model=args.d_model,
-            n_head=args.n_head,
-            num_encoder_layers=args.transformer_layers,
-            dim_feedforward=args.dim_feedforward,
-            dropout=args.dropout
         )
     else:
         raise ValueError(f"不支持的模型类型: {args.model}")

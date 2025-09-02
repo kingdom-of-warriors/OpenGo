@@ -6,7 +6,7 @@ import glob
 from typing import List, Tuple, Dict, Any, Union, Optional
 from tqdm import tqdm
 from dataclasses import dataclass
-
+import argparse
 from utils import cal_liberity, find_valid
 
 @dataclass
@@ -16,13 +16,6 @@ class FeatureConfig:
     enable_liberty: bool = False         # 气数特征
     enable_valid_moves: bool = False     # 可落子位置特征
     history_length: int = 8             # 历史长度
-    
-    def __post_init__(self):
-        """验证配置"""
-        if not self.enable_history:
-            raise ValueError("历史信息是必需的特征，不能禁用")
-        if self.history_length <= 0:
-            raise ValueError("历史长度必须大于0")
 
 class FeatureExtractor:
     """特征提取器基类"""
@@ -162,8 +155,6 @@ class SGFParser:
         self.feature_config = feature_config or FeatureConfig()
         self.feature_extractors: List[FeatureExtractor] = []
         self._setup_feature_extractors()
-        
-        # 计算总通道数
         self.total_channels = sum(extractor.channels for extractor in self.feature_extractors)
         
     def _setup_feature_extractors(self) -> None:
@@ -233,10 +224,8 @@ class SGFParser:
             colors.append(1 if color == 'B' else 0)
             
             row, col = move_idx // 19, move_idx % 19
-            if color == 'B':
-                black_board[row, col] = 1
-            else:
-                white_board[row, col] = 1
+            if color == 'B': black_board[row, col] = 1
+            else: white_board[row, col] = 1
             
             # 保存当前步骤后的棋盘状态到历史中
             board_history.append({
@@ -272,11 +261,7 @@ class SGFParser:
         
         for extractor in self.feature_extractors:
             channels = extractor.channels
-            feature_info[extractor.name] = {
-                "channels": channels,
-                "start_channel": channel_start,
-                "end_channel": channel_start + channels - 1
-            }
+            feature_info[extractor.name] = {"channels": channels}
             channel_start += channels
         
         return {
@@ -384,45 +369,48 @@ def parse_multiple_sgf_files_batched(
     print(f"处理文件数: {len(sgf_files)}")
     print(f"总位置数: {total_positions}")
     print(f"保存批次数: {batch_count}")
+ 
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(description="SGF文件批量处理工具")
+    
+    parser.add_argument("--sgf_dir", type=str, required=True,
+                       help="SGF文件目录路径")
+    parser.add_argument("--output_dir", type=str, required=True,
+                       help="输出目录路径")
+    parser.add_argument("--enable_history", action="store_true", default=True,
+                       help="启用历史特征 (默认: True)")
+    parser.add_argument("--enable_liberty", action="store_true", default=False,
+                       help="启用气数特征 (默认: False)")
+    parser.add_argument("--enable_valid_moves", action="store_true", default=False,
+                       help="启用可落子位置特征 (默认: False)")
+    parser.add_argument("--history_length", type=int, default=12,
+                       help="历史长度 (默认: 12)")
+    parser.add_argument("--batch_size", type=int, default=1000,
+                       help="批次大小 (默认: 1000)")
+    parser.add_argument("--batch_num", type=int, default=50,
+                       help="处理批次数量 (默认: 50)")
+    
+    return parser.parse_args()
 
 def main():
-    """主函数示例 - 展示如何使用不同的特征配置"""
-    print("--- 开始数据预处理 ---")
+    args = parse_args()
     
-    # 示例1: 使用所有特征
-    config_all = FeatureConfig(
-        enable_history=True,
-        enable_liberty=True,
-        enable_valid_moves=True,
-        history_length=8
+    # 根据参数创建特征配置
+    feature_config = FeatureConfig(
+        enable_history=args.enable_history,
+        enable_liberty=args.enable_liberty,
+        enable_valid_moves=args.enable_valid_moves,
+        history_length=args.history_length
     )
     
-    # 示例2: 只使用历史和气数特征
-    config_no_valid = FeatureConfig(
-        enable_history=True,
-        enable_liberty=True,
-        enable_valid_moves=False,
-        history_length=8
-    )
-    
-    # 示例3: 只使用历史特征
-    config_history_12 = FeatureConfig(
-        enable_history=True,
-        enable_liberty=False,
-        enable_valid_moves=False,
-        history_length=12
-    )
-    
-    # 使用配置1处理数据
     parse_multiple_sgf_files_batched(
-        sgf_dir="/mnt/petrelfs/lijiarui/OpenGo/GoDataset/AI", 
-        output_dir="/mnt/petrelfs/lijiarui/OpenGo/GoDataset/AI_pt",
-        feature_config=config_history_12,
-        batch_size=1000,
-        batch_num=50
+        sgf_dir=args.sgf_dir,
+        output_dir=args.output_dir,
+        feature_config=feature_config,
+        batch_size=args.batch_size,
+        batch_num=args.batch_num
     )
-    
-    print("--- 数据预处理完成 ---")
 
 if __name__ == "__main__":
     main()
