@@ -57,6 +57,6 @@ class GoDataset(torch.utils.data.Dataset):
         
         return {
             'board': board.float(),
-            'move': torch.tensor(move, dtype=torch.long),
+            'move': move,
             'color': color,
         }

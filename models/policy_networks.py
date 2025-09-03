@@ -67,6 +67,54 @@ class PolicyNetwork_resnet(nn.Module):
 
         return policy_logits
 
+    @torch.inference_mode()
+    def sample(self, x: torch.Tensor):
+        """
+        根据模型输出的策略分布，返回概率分布。
+        利用8种对称性（旋转、翻转）来增强预测并采样。
+        支持批处理输入 (N, C, H, W)。
+        """
+        self.eval()
+        n, c, h, w = x.shape
+        
+        # 定义8种对称变换
+        transforms = {
+            'identity': lambda t: t,
+            'r90':      lambda t: torch.rot90(t, 1, [2, 3]),
+            'r180':     lambda t: torch.rot90(t, 2, [2, 3]),
+            'r270':     lambda t: torch.rot90(t, 3, [2, 3]),
+            'f':        lambda t: torch.flip(t, [3]),
+            'f_r90':    lambda t: torch.rot90(torch.flip(t, [3]), 1, [2, 3]),
+            'f_r180':   lambda t: torch.rot90(torch.flip(t, [3]), 2, [2, 3]),
+            'f_r270':   lambda t: torch.rot90(torch.flip(t, [3]), 3, [2, 3]),
+        }
+        symmetries = torch.stack([transform(x) for transform in transforms.values()]) # [8, N, C, H, W]
+        batch_x = symmetries.view(-1, c, h, w) # [8*N, C, H, W]
+
+        batch_logits = self.forward(batch_x)
+        batch_probs = F.softmax(batch_logits, dim=1)
+        probs_by_symmetry = batch_probs.view(8, n, -1) # [8, N, H*W]
+        
+        # 定义对应的8种逆变换
+        inverse_transforms = {
+            'identity': lambda p: p,
+            'r90':      lambda p: torch.rot90(p, -1, [1, 2]),
+            'r180':     lambda p: torch.rot90(p, -2, [1, 2]),
+            'r270':     lambda p: torch.rot90(p, -3, [1, 2]),
+            'f':        lambda p: torch.flip(p, [2]),
+            'f_r90':    lambda p: torch.flip(torch.rot90(p, -1, [1, 2]), [2]),
+            'f_r180':   lambda p: torch.flip(torch.rot90(p, -2, [1, 2]), [2]),
+            'f_r270':   lambda p: torch.flip(torch.rot90(p, -3, [1, 2]), [2]),
+        }
+
+        untransformed_probs = []
+        for i, inv_transform in enumerate(inverse_transforms.values()):
+            prob_maps = probs_by_symmetry[i].view(n, h, w) # [N, H*W] -> [N, H, W]
+            untransformed_maps = inv_transform(prob_maps)
+            untransformed_probs.append(untransformed_maps.reshape(n, -1))
+        avg_probs = torch.mean(torch.stack(untransformed_probs), dim=0)
+            
+        return avg_probs
     
 
 def create_model(args, device):

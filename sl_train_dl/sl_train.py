@@ -7,11 +7,13 @@ import os
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+import random
 
-from config import parse_args
+from sl_train_dl.config import parse_args
+from sl_train_dl.engine import train_epoch, validate_epoch
 from data_utils.go_dataset import GoDataset
 from models.policy_networks import create_model
-from engine import train_epoch, validate_epoch
+
 
 def setup_ddp(rank, world_size):
     """初始化DDP环境"""
@@ -21,6 +23,13 @@ def setup_ddp(rank, world_size):
     torch.cuda.set_device(rank)
 
 def cleanup_ddp(): dist.destroy_process_group()
+
+def seed_worker(worker_id: int):
+    """
+    为 DataLoader 的工作进程设置独立的随机种子。
+    """
+    worker_seed = torch.initial_seed() % 2**32
+    random.seed(worker_seed)
 
 def main():
     args = parse_args()
@@ -43,8 +52,8 @@ def main():
     
     train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=local_rank)
     val_sampler = DistributedSampler(val_dataset, num_replicas=world_size, rank=local_rank, shuffle=False)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, sampler=train_sampler)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, sampler=val_sampler)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, sampler=train_sampler, worker_init_fn=seed_worker)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, sampler=val_sampler, worker_init_fn=seed_worker)
     
     if local_rank == 0:
         print(f"数据集大小: 训练={len(train_dataset)}, 验证={len(val_dataset)}")
@@ -76,7 +85,7 @@ def main():
             
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
-                save_path = f'{args.ckpt_dir}/AI_Human_12_192.pth'
+                save_path = f'{args.ckpt_dir}/AI_12_192.pth'
                 torch.save({'model_state_dict': model.module.state_dict(), 'args': args}, save_path)
                 print(f"--> 新的最佳模型已保存至 {save_path} (Val Acc: {val_acc:.2f}%)")
 
