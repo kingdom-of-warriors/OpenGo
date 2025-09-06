@@ -28,8 +28,8 @@ def parse_args():
     # ResNet 特定参数
     parser.add_argument('--resnet_blocks', type=int, default=8, 
                        help='ResNet 残差块数量 (默认: 8)')
-    parser.add_argument('--resnet_filters', type=int, default=128, 
-                       help='ResNet 滤波器数量 (默认: 128)')
+    parser.add_argument('--resnet_filters', type=int, default=192, 
+                       help='ResNet 滤波器数量 (默认: 192)')
 
     
     return parser.parse_args()

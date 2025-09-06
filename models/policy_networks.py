@@ -67,14 +67,11 @@ class PolicyNetwork_resnet(nn.Module):
 
         return policy_logits
 
-    @torch.inference_mode()
-    def sample(self, x: torch.Tensor):
+    def sample_rl(self, x: torch.Tensor):
         """
-        根据模型输出的策略分布，返回概率分布。
         利用8种对称性（旋转、翻转）来增强预测并采样。
         支持批处理输入 (N, C, H, W)。
         """
-        self.eval()
         n, c, h, w = x.shape
         
         # 定义8种对称变换
@@ -116,6 +113,8 @@ class PolicyNetwork_resnet(nn.Module):
             
         return avg_probs
     
+    def sample_inference(self, x: torch.Tensor):
+        with torch.no_grad(): return self.sample_rl(x)
 
 def create_model(args, device):
     """根据参数创建模型"""
