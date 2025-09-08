@@ -28,7 +28,7 @@ def seed_worker(worker_id: int):
     """
     为 DataLoader 的工作进程设置独立的随机种子。
     """
-    worker_seed = torch.initial_seed() % 2**32
+    worker_seed = (torch.initial_seed() + worker_id) % (2**32)
     random.seed(worker_seed)
 
 def main():
@@ -55,8 +55,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, sampler=train_sampler, worker_init_fn=seed_worker)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, sampler=val_sampler, worker_init_fn=seed_worker)
     
-    if local_rank == 0:
-        print(f"数据集大小: 训练={len(train_dataset)}, 验证={len(val_dataset)}")
+    if local_rank == 0: print(f"数据集大小: 训练={len(train_dataset)}, 验证={len(val_dataset)}")
 
     device = torch.device("cuda", local_rank)
     model = create_model(args, device) 

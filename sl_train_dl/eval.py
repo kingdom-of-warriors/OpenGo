@@ -1,4 +1,3 @@
-# Use dlgo.utils.print_board function!
 import torch
 import numpy as np
 import os
@@ -9,22 +8,21 @@ from dlgo.utils import print_board
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from models.policy_networks import create_model
+from models.policy_networks import create_model, PolicyNetwork_resnet
 from sl_train_dl.config import parse_args
-
 from dlgo.gotypes import Player, Point
 from dlgo.goboard_slow import GameState, Move
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 args = parse_args()
 model = create_model(args, device)
-ckpt_path = "ckpt/AI_12_192.pth"
+ckpt_path = args.ckpt_path
 checkpoint = torch.load(ckpt_path, map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
 
 class GoGameEvaluator:
-    def __init__(self, model, device, board_size=19):
+    def __init__(self, model: PolicyNetwork_resnet, device, board_size=19):
         self.model = model
         self.device = device
         self.board_size = board_size
@@ -96,10 +94,8 @@ class GoGameEvaluator:
         for row in range(1, self.board_size + 1):
             for col in range(1, self.board_size + 1):
                 stone = game_state.board.get(Point(row=row, col=col))
-                if stone == Player.black:
-                    current_board[row-1, col-1] = 1
-                elif stone == Player.white:
-                    current_board[row-1, col-1] = 2
+                if stone == Player.black: current_board[row-1, col-1] = 1
+                elif stone == Player.white: current_board[row-1, col-1] = 2
         
         # 第1-3维：当前状态
         if game_state.next_player == Player.black:
@@ -125,8 +121,7 @@ class GoGameEvaluator:
         
         return torch.tensor(input_tensor, dtype=torch.float32).unsqueeze(0).to(self.device)
     
-    def get_model_move(self, game_state):
-        """获取模型的落子建议"""
+    def get_model_move(self, game_state: GameState):
         # 保存当前状态到历史
         current_board = np.zeros((self.board_size, self.board_size), dtype=int)
         for row in range(1, self.board_size + 1):
@@ -140,7 +135,7 @@ class GoGameEvaluator:
         
         # 获取模型合法输出
         input_tensor = self.game_state_to_tensor(game_state)
-        policy_logits = self.model.sample_inference(input_tensor)
+        policy_logits = self.model.sample(input_tensor, requires_grad=False)
         policy_probs = torch.softmax(policy_logits, dim=1).cpu().numpy()[0]
         policy_2d = policy_probs.reshape(19, 19)
         
@@ -248,7 +243,6 @@ class GoGameEvaluator:
         print("\n=== 游戏结束 ===")
         
         game_result = None
-        # 询问是否保存棋谱
         if self.move_history:
             while True:
                 save_choice = input("\n是否保存棋谱到SGF文件? (y/n): ").strip().lower()

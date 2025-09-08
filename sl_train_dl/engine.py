@@ -23,7 +23,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         
-        # 累计每个进程自己的统计数据
+        # 统计每个进程统计数据
         total_loss += loss.item() * boards.size(0) 
         _, predicted = torch.max(policy_logits.data, 1)
         total += move_idx.size(0)
@@ -41,7 +41,6 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
     return avg_loss, accuracy
 
 def validate_epoch(model, val_loader, criterion, device):
-    """验证一个epoch（DDP兼容版）"""
     model.eval()
     total_loss = 0.0
     correct = 0

@@ -13,7 +13,7 @@ def parse_args():
                        help='数据集数量')
     parser.add_argument('--input_channels', type=int, default=27, help='输入通道数 (默认: 19)')
     
-    # 可选参数
+    # 训练参数
     parser.add_argument('--batch_size', type=int, default=128, 
                        help='批处理大小 (默认: 128)')
     parser.add_argument('--epochs', type=int, default=100, 
@@ -23,13 +23,21 @@ def parse_args():
     parser.add_argument('--data_dir', type=str, default='GoDataset/AI_pt', 
                        help='数据集目录')
     parser.add_argument('--scheduler', type=str, default='steplr')
-    parser.add_argument('--ckpt_dir', type=str, default='ckpt/')
+    parser.add_argument('--ckpt_dir', type=str, default='ckpt/',
+                        help='检查点保存目录 (默认: ckpt/)')
     
-    # ResNet 特定参数
+    # Model 参数
     parser.add_argument('--resnet_blocks', type=int, default=8, 
                        help='ResNet 残差块数量 (默认: 8)')
     parser.add_argument('--resnet_filters', type=int, default=192, 
                        help='ResNet 滤波器数量 (默认: 192)')
-
+    
+    # eval 参数
+    parser.add_argument('--ckpt_path', type=str, default=None,
+                    help='检查点文件路径')
+    
+    # self play 参数
+    parser.add_argument('--enemies_ckpt_dir', type=str, default='ckpt/enemies/',
+                        help='对手检查点保存目录')
     
     return parser.parse_args()
