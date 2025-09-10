@@ -9,7 +9,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from models.policy_networks import create_model, PolicyNetwork_resnet
-from sl_train_dl.config import parse_args
+from config import parse_args
 from dlgo.gotypes import Player, Point
 from dlgo.goboard_slow import GameState, Move
 

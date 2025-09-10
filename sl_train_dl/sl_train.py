@@ -9,7 +9,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 import random
 
-from sl_train_dl.config import parse_args
+from config import parse_args
 from sl_train_dl.engine import train_epoch, validate_epoch
 from data_utils.go_dataset import GoDataset
 from models.policy_networks import create_model
