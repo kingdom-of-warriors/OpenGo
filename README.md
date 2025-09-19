@@ -1,4 +1,5 @@
 ## TODO list
+- [ ] 训练一个判断胜负的网络
 
 ## 深度学习训练policy network
 ### 数据集

@@ -8,12 +8,14 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 import random
+import sys
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 from config import parse_args
 from sl_train_dl.engine import train_epoch, validate_epoch
-from data_utils.go_dataset import GoDataset
+from data_utils.go_dataset import GoDataset, WinnerDataset
 from models.policy_networks import create_model
-
 
 def setup_ddp(rank, world_size):
     """初始化DDP环境"""
@@ -44,7 +46,10 @@ def main():
         print("-" * 20)
 
     torch.manual_seed(42)
-    dataset = GoDataset(data_dir=args.data_dir, data_num=args.data_num, board_size=19, enable_augmentation=True)
+    if args.model == "resnet":
+        dataset = GoDataset(data_dirs=args.data_dirs, data_num=args.data_num, board_size=19, enable_augmentation=True)
+    elif args.model == "winner":
+        dataset = WinnerDataset(data_dirs=args.data_dirs, data_num=args.data_num, enable_augmentation=True)
     total_size = len(dataset)
     train_size = int(0.8 * total_size)
     val_size = total_size - train_size
@@ -84,7 +89,7 @@ def main():
             
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
-                save_path = f'{args.ckpt_dir}/AI_12_192.pth'
+                save_path = f'{args.ckpt_dir}/winner_12_192.pth'
                 torch.save({'model_state_dict': model.module.state_dict(), 'args': args}, save_path)
                 print(f"--> 新的最佳模型已保存至 {save_path} (Val Acc: {val_acc:.2f}%)")
 

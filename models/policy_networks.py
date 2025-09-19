@@ -109,12 +109,63 @@ class PolicyNetwork_resnet(nn.Module):
         else: 
             with torch.no_grad(): return self.sample_rl(x)
 
+class WinnerNetwork_resnet(nn.Module):
+    """
+    基于ResNet的胜负判断网络。
+    输入: (N, 2, 19, 19) - 第0维为黑棋位置，第1维为白棋位置
+    输出: (N, 2) - [黑胜概率, 白胜概率]
+    """
+    def __init__(self, input_channels: int = 2, num_residual_blocks: int = 8, num_filters: int = 64):
+        super(WinnerNetwork_resnet, self).__init__()
+        # 输入层
+        self.conv_head = nn.Conv2d(input_channels, num_filters, kernel_size=3, padding='same')
+        self.bn_head = nn.BatchNorm2d(num_filters)
+        
+        # 残差块
+        self.res_blocks = nn.Sequential(
+            *[ResidualBlock(num_filters) for _ in range(num_residual_blocks)]
+        )
+        
+        # 胜负判断头
+        self.conv = nn.Conv2d(num_filters, 4, kernel_size=1, padding='same')
+        self.bn = nn.BatchNorm2d(4)
+        self.fc1 = nn.Linear(4 * 19 * 19, 256)
+        self.dropout = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(256, 2)  # [黑胜, 白胜]
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = F.relu(self.bn_head(self.conv_head(x)))
+        out = self.res_blocks(out)
+        winner = F.relu(self.bn(self.conv(out)))
+        winner = torch.flatten(winner, start_dim=1)
+        winner = F.relu(self.fc1(winner))
+        winner = self.dropout(winner)
+        winner_logits = self.fc2(winner)
+        
+        return winner_logits
+    
+    def predict_winner(self, x: torch.Tensor) -> torch.Tensor:
+        logits = self.forward(x)
+        probs = F.softmax(logits, dim=1)
+        return probs
+    
+    def get_winner_prediction(self, x: torch.Tensor) -> tuple:
+        probs = self.predict_winner(x)
+        predictions = torch.argmax(probs, dim=1)
+        confidence = torch.max(probs, dim=1)[0]
+        return predictions, confidence
 
 def create_model(args, device):
     """根据参数创建模型"""
     if args.model == 'resnet':
         model = PolicyNetwork_resnet(
             input_channels=args.input_channels, 
+            num_residual_blocks=args.resnet_blocks, 
+            num_filters=args.resnet_filters
+        )
+    elif args.model == 'winner':
+        model = WinnerNetwork_resnet(
+            input_channels=2,  # 固定为2通道 (黑棋, 白棋)
             num_residual_blocks=args.resnet_blocks, 
             num_filters=args.resnet_filters
         )

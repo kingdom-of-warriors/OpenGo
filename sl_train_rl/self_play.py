@@ -85,7 +85,42 @@ def load_random_opponent(args, device):
     opponent_model.eval()
     return opponent_model
 
-def play_game(current_model: PolicyNetwork_resnet, opponent_model: PolicyNetwork_resnet, max_step: int, board_size=19):
+def move_to_sgf_coord(move: Move, board_size=19):
+    """将 Move 对象转换为 SGF 坐标字符串，例如 'qd'"""
+    if move.is_pass or move.is_resign:
+        return ""
+    col_str = "abcdefghijklmnopqrstuvwxy"[move.point.col - 1]
+    row_str = "abcdefghijklmnopqrstuvwxy"[move.point.row - 1]
+    return col_str + row_str
+
+def save_game_to_sgf(moves: list, winner: Player, sgf_filepath: str, current_model_color: Player):
+    """将对局保存为 SGF 文件"""
+    sgf_content = "(;FF[4]CA[UTF-8]GM[1]SZ[19]\n"
+    
+    result = "B+R" if winner == Player.black else "W+R"
+    sgf_content += f"RE[{result}]\n"
+
+    if current_model_color == Player.black:
+        sgf_content += "PB[current_model]\nPW[opponent_model]\n"
+    else:
+        sgf_content += "PB[opponent_model]\nPW[current_model]\n"
+
+    # 写入着法
+    for i, move in enumerate(moves):
+        player_str = "B" if (i % 2 == 0) else "W"
+        coord_str = move_to_sgf_coord(move)
+        sgf_content += f";{player_str}[{coord_str}]"
+    
+    sgf_content += ")\n"
+
+    # 确保目录存在并保存文件
+    os.makedirs(os.path.dirname(sgf_filepath), exist_ok=True)
+    with open(sgf_filepath, "w") as f: f.write(sgf_content)
+
+def play_game(current_model: PolicyNetwork_resnet, 
+              opponent_model: PolicyNetwork_resnet, 
+              max_step: int, board_size=19,
+              sgf_filepath: str = None):
     """
     在游戏过程中直接计算训练模型的loss
     """
@@ -142,6 +177,10 @@ def play_game(current_model: PolicyNetwork_resnet, opponent_model: PolicyNetwork
     z_t = +1.0 if current_model_won else -1.0
     training_losses = [loss * z_t for loss in training_losses_abs]
 
+    # 保存棋谱
+    if sgf_filepath: save_game_to_sgf(moves, game_result.winner, sgf_filepath, current_model_color)
+
+
     return {
         'current_model_won': current_model_won,
         'training_losses': training_losses,
@@ -161,7 +200,9 @@ def train(num_iterations=1000):
         # 评估模式生成最优质数据
         model.eval()
         for j in tqdm(range(minibatch)):
-            game_data = play_game(model, opponent_model, max_step=args.max_step)
+            sgf_dir = os.path.join("GoDataset", "self_play", f"iter_{i+1}")
+            sgf_filepath = os.path.join(sgf_dir, f"game_{j+1}.sgf")
+            game_data = play_game(model, opponent_model, args.max_step, 19, sgf_filepath)
             game_loss = torch.stack(game_data['training_losses']).mean()
             accumulated_loss_value += game_loss.item()
             (game_loss / minibatch).backward()
