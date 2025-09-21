@@ -1,6 +1,7 @@
 ## TODO list
 - [X] 实现自我对弈的并行过程
-- [ ] 实现一个直观的print_board函数
+- [ ] 自我对弈时增加 **温度** 这个参数
+- [X] 实现一个直观的`print_board`函数
 - [ ] 实现价值网络的训练
 - [ ] 实现蒙特卡洛搜索
 
@@ -39,7 +40,7 @@ python data_utils/read.py --sgf_dir GoDataset/Human/ --output_dir GoDataset/Huma
     torchrun --standalone --nproc_per_node=$NUM_GPUS sl_train_dl/sl_train.py --data_dirs "GoDataset/AI_pt/" # 只训练AI数据集，一个进程32G内存
     torchrun --standalone --nproc_per_node=$NUM_GPUS sl_train_dl/sl_train.py --data_dirs "GoDataset/Human_pt/" # 只训练人类数据集，一个进程93G内存
     ```
-    最终模型在测试集上预测下一步的准确率会达到$51.6\%$左右，比`alphago`论文中的只用历史信息的网络稍低一些($55.7\%$)。
+    最终模型在测试集上预测下一步的准确率会达到 51.6% 左右，比`alphago`论文中的只用历史信息的网络稍低一些(55.7%)。
 
 2. 在训练完策略网络之后，你可以与它激情对局一盘！
     ```bash
