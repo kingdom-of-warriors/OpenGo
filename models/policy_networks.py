@@ -56,12 +56,10 @@ class ResidualBlock(nn.Module):
         
         return out
     
-class PolicyNetwork_resnet(nn.Module):
-    """
-    基于ResNet的策略网络。
-    """
+class PolicyNetwork(nn.Module):
+    """基于ResNet的策略网络。"""
     def __init__(self, input_channels: int = 19, num_residual_blocks: int = 12, num_filters: int = 192):
-        super(PolicyNetwork_resnet, self).__init__()
+        super(PolicyNetwork, self).__init__()
         self.conv_head = nn.Conv2d(input_channels, num_filters, kernel_size=3, padding='same')
         self.bn_head = nn.BatchNorm2d(num_filters)
         self.res_blocks = nn.Sequential(
@@ -109,66 +107,54 @@ class PolicyNetwork_resnet(nn.Module):
         else: 
             with torch.no_grad(): return self.sample_rl(x)
 
-class WinnerNetwork_resnet(nn.Module):
-    """
-    基于ResNet的胜负判断网络。
-    输入: (N, 2, 19, 19) - 第0维为黑棋位置，第1维为白棋位置
-    输出: (N, 2) - [黑胜概率, 白胜概率]
-    """
-    def __init__(self, input_channels: int = 2, num_residual_blocks: int = 8, num_filters: int = 64):
-        super(WinnerNetwork_resnet, self).__init__()
-        # 输入层
-        self.conv_head = nn.Conv2d(input_channels, num_filters, kernel_size=3, padding='same')
+
+class ValueNetwork(nn.Module):
+    """基于ResNet的价值网络"""
+    def __init__(self, input_channels: int = 19, num_residual_blocks: int = 12, num_filters: int = 192, board_size: int = 19):
+        super(ValueNetwork, self).__init__()
+        self.conv_head = nn.Conv2d(input_channels, num_filters, kernel_size=3, padding=1, bias=False)
         self.bn_head = nn.BatchNorm2d(num_filters)
-        
-        # 残差块
         self.res_blocks = nn.Sequential(
             *[ResidualBlock(num_filters) for _ in range(num_residual_blocks)]
         )
-        
-        # 胜负判断头
-        self.conv = nn.Conv2d(num_filters, 4, kernel_size=1, padding='same')
-        self.bn = nn.BatchNorm2d(4)
-        self.fc1 = nn.Linear(4 * 19 * 19, 256)
-        self.dropout = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(256, 2)  # [黑胜, 白胜]
+        ##################### 以上与策略网络相同  下面是价值头#############################
+        self.conv_value = nn.Conv2d(num_filters, 1, kernel_size=1, bias=False) # 转化为1通道
+        self.bn_value = nn.BatchNorm2d(1)
+        self.fc_value1 = nn.Linear(1 * board_size * board_size, 256)
+        self.fc_value2 = nn.Linear(256, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        前向传播函数。
+        输入: x - 棋盘状态和历史记录的张量, shape: [N, C, H, W]
+        输出: value - 局面的评估值, shape: [N, 1]
+        """
+        # 通过共享的躯干网络
         out = F.relu(self.bn_head(self.conv_head(x)))
         out = self.res_blocks(out)
-        winner = F.relu(self.bn(self.conv(out)))
-        winner = torch.flatten(winner, start_dim=1)
-        winner = F.relu(self.fc1(winner))
-        winner = self.dropout(winner)
-        winner_logits = self.fc2(winner)
+        value = F.relu(self.bn_value(self.conv_value(out)))
+        value = torch.flatten(value, start_dim=1)
+        value = F.relu(self.fc_value1(value))
+        value = torch.tanh(self.fc_value2(value)) # 缩放到 [-1, 1]
         
-        return winner_logits
-    
-    def predict_winner(self, x: torch.Tensor) -> torch.Tensor:
-        logits = self.forward(x)
-        probs = F.softmax(logits, dim=1)
-        return probs
-    
-    def get_winner_prediction(self, x: torch.Tensor) -> tuple:
-        probs = self.predict_winner(x)
-        predictions = torch.argmax(probs, dim=1)
-        confidence = torch.max(probs, dim=1)[0]
-        return predictions, confidence
+        return value
+
 
 def create_model(args, device):
     """根据参数创建模型"""
-    if args.model == 'resnet':
-        model = PolicyNetwork_resnet(
+    if args.model == 'policy':
+        model = PolicyNetwork(
             input_channels=args.input_channels, 
             num_residual_blocks=args.resnet_blocks, 
             num_filters=args.resnet_filters
         )
-    elif args.model == 'winner':
-        model = WinnerNetwork_resnet(
-            input_channels=2,  # 固定为2通道 (黑棋, 白棋)
+    elif args.model == 'value':
+        model = ValueNetwork(
+            input_channels=args.input_channels, 
             num_residual_blocks=args.resnet_blocks, 
             num_filters=args.resnet_filters
         )
+
     else:
         raise ValueError(f"不支持的模型类型: {args.model}")
     

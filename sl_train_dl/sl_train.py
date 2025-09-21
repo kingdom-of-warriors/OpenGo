@@ -48,8 +48,8 @@ def main():
     torch.manual_seed(42)
     if args.model == "resnet":
         dataset = GoDataset(data_dirs=args.data_dirs, data_num=args.data_num, board_size=19, enable_augmentation=True)
-    elif args.model == "winner":
-        dataset = WinnerDataset(data_dirs=args.data_dirs, data_num=args.data_num, enable_augmentation=True)
+    # elif args.model == "winner":
+    #     dataset = WinnerDataset(data_dirs=args.data_dirs, data_num=args.data_num, enable_augmentation=True)
     total_size = len(dataset)
     train_size = int(0.8 * total_size)
     val_size = total_size - train_size

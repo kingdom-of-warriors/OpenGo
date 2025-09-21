@@ -5,13 +5,14 @@ def parse_args():
     parser = argparse.ArgumentParser(description='围棋策略网络训练')
     
     # 必需参数
-    parser.add_argument('--model', type=str, choices=['resnet', 'winner'], 
-                       default='resnet', help='模型类型 (resnet)')
+    parser.add_argument('--model', type=str, choices=['value', 'policy'], 
+                       default='policy', help='模型类型')
     parser.add_argument('--lr', type=float, default=0.001, 
                        help='学习率 (默认: 0.001)')
     parser.add_argument('--data_num', type=int, default=10, 
                        help='数据集数量')
-    parser.add_argument('--input_channels', type=int, default=27, help='输入通道数 (默认: 19)')
+    parser.add_argument('--input_channels', type=int, default=27, help='输入通道数')
+    parser.add_argument('--board_size', type=int, default=19, help='棋盘大小')
     
     # 训练参数
     parser.add_argument('--batch_size', type=int, default=128, 
@@ -40,8 +41,10 @@ def parse_args():
     parser.add_argument('--enemies_ckpt_dir', type=str, default='ckpt/enemies/',
                         help='对手检查点保存目录')
     parser.add_argument('--minibatch', type=int, default=16, help='每个minibatch的自对弈数量 (默认: 16)')
-    parser.add_argument('--max_step', type=int, default=400, help='最大自对弈手数')
+    parser.add_argument('--max_step', type=int, default=360, help='最大自对弈手数')
     parser.add_argument('--save_enemy', type=int, default=20, help='每N个minibatch保存一个对手模型 (默认: 20)')
     parser.add_argument('--save_model', type=int, default=20, help='每N个minibatch保存一个自己的模型 (默认: 20)')
     parser.add_argument('--rl_lr', type=float, default=5e-5, help='强化学习学习率 (默认: 5e-5)')
+    parser.add_argument('--num_parallel', type=int, default=4, help='每轮并行自对弈的数量 (默认: 4)')
+
     return parser.parse_args()

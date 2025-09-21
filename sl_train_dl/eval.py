@@ -8,7 +8,7 @@ from dlgo.utils import print_board
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from models.policy_networks import create_model, PolicyNetwork_resnet
+from models.policy_networks import create_model, PolicyNetwork
 from config import parse_args
 from dlgo.gotypes import Player, Point
 from dlgo.goboard_slow import GameState, Move
@@ -22,7 +22,7 @@ model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
 
 class GoGameEvaluator:
-    def __init__(self, model: PolicyNetwork_resnet, device, board_size=19):
+    def __init__(self, model: PolicyNetwork, device, board_size=19):
         self.model = model
         self.device = device
         self.board_size = board_size
