@@ -16,7 +16,6 @@ def main():
     args = parse_args()
     args.rl_lr = 5e-5 
     args.num_iterations = 10000
-    args.minibatch = 4 
     args.save_enemy = 50
     args.save_model = 100
     args.max_step = 360
@@ -33,8 +32,6 @@ def main():
     os.makedirs(args.enemies_ckpt_dir, exist_ok=True)
     os.makedirs(args.ckpt_dir, exist_ok=True)
 
-    # 启动训练
     train(model, args, device)
 
-if __name__ == '__main__':
-    main()
+if __name__ == '__main__': main()

@@ -3,7 +3,6 @@ import numpy as np
 import os
 from datetime import datetime
 import sys
-from dlgo.utils import print_board
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
@@ -20,6 +19,66 @@ ckpt_path = args.ckpt_path
 checkpoint = torch.load(ckpt_path, map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
+
+def print_board_new(board):
+    """
+    仿照示例风格，使用ANSI颜色和Unicode字符打印棋盘。
+    - 黑子: ●, 白子: ○
+    """
+    # ANSI颜色代码
+    BOARD_COLOR = '\033[0;30;43m'  # 背景: 黄色, 前景: 黑色
+    RESET_COLOR = '\033[0m'       # 重置所有属性
+
+    # 棋子和网格字符
+    STONE_MAP = {
+        Player.black: chr(0x25cf),  # ●
+        Player.white: chr(0x25cb),  # ○
+    }
+    
+    GRID_CHARS = {
+        # (row_idx, col_idx) -> char
+        (0, 0):    chr(0x250c),  # ┌
+        (0, 18):   chr(0x2510),  # ┐
+        (18, 0):   chr(0x2514),  # └
+        (18, 18):  chr(0x2518),  # ┘
+        (0, 'mid'):  chr(0x252c),  # ┬
+        (18, 'mid'): chr(0x2534),  # ┴
+        ('mid', 0):  chr(0x251c),  # ├
+        ('mid', 18): chr(0x2524),  # ┤
+        ('mid', 'mid'): chr(0x253c), # ┼
+    }
+
+    # 打印顶部列坐标，调整间距以对齐网格线
+    COLS = 'ABCDEFGHJKLMNOPQRST'
+    print('  ' + ''.join(f' {c}' for c in COLS[:board.num_cols]))
+
+    for r_idx in range(board.num_rows):
+        row = board.num_rows - r_idx
+        # 打印行首坐标
+        print(f'{row:<2d}', end='')
+        
+        # 打印棋盘行
+        sys.stdout.write(BOARD_COLOR)
+        for c_idx in range(board.num_cols):
+            col = c_idx + 1
+            stone = board.get(Point(row=row, col=col))
+            
+            if stone: print(f' {STONE_MAP[stone]}', end='')
+            else:
+                # 否则，打印网格线
+                if r_idx in (0, 18): r_key = r_idx
+                else: r_key = 'mid'
+                if c_idx in (0, 18): c_key = c_idx
+                else: c_key = 'mid'
+                
+                print(f' {GRID_CHARS[(r_key, c_key)]}', end='')
+        
+        sys.stdout.write(RESET_COLOR)
+        print(f' {row:>2d}')
+
+    # 打印底部列坐标
+    print('  ' + ''.join(f' {c}' for c in COLS[:board.num_cols]))
+
 
 class GoGameEvaluator:
     def __init__(self, model: PolicyNetwork, device, board_size=19):
@@ -201,7 +260,7 @@ class GoGameEvaluator:
         
         print(f"\n你执{'黑棋' if human_player == Player.black else '白棋'}，AI执{'白棋' if ai_player == Player.white else '黑棋'}")
         print("\n初始棋盘:")
-        print_board(game.board)
+        print_board_new(game.board)
         
         game_ended_manually = False
         
@@ -239,7 +298,7 @@ class GoGameEvaluator:
                 if move.is_pass: print("AI选择 PASS")
             
             print("\n当前棋盘:")
-            print_board(game.board)
+            print_board_new(game.board)
         print("\n=== 游戏结束 ===")
         
         game_result = None

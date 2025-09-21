@@ -48,12 +48,10 @@ def play_game(current_model: PolicyNetwork, opponent_model: PolicyNetwork, max_s
         players = {Player.black: current_model, Player.white: opponent_model}
         current_model_color = Player.black
 
-    pbar = tqdm(total=max_step, desc="Game Progress", leave=False, bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} steps')
+    pbar = tqdm(total=max_step, desc="Game Progress", leave=False, bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} steps') # 进度条
     for step_count in range(max_step):
-        if game_state.is_over():
-            break
-
         current_board = np.zeros((board_size, board_size), dtype=np.int8)
+        # 获得当下局面黑白棋子位置 并加入history中
         for r in range(1, board_size + 1):
             for c in range(1, board_size + 1):
                 stone = game_state.board.get(Point(row=r, col=c))
@@ -62,9 +60,10 @@ def play_game(current_model: PolicyNetwork, opponent_model: PolicyNetwork, max_s
         game_history.append(current_board)
 
         active_model = players[game_state.next_player]
-        requires_grad = (active_model == current_model)
+        requires_grad = (active_model == current_model) # 当前模型需要计算梯度
         move_probs = get_model_prediction(active_model, game_state, game_history, board_size, requires_grad, device)
-        move_idx = torch.multinomial(move_probs, 1).item()
+        move_idx = torch.multinomial(move_probs, 1).item() # 采样落子位置
+        # 计算该步的负对数似然loss
         if requires_grad:
             loss_abs = -torch.log(move_probs[move_idx] + 1e-8)
             training_losses_abs.append(loss_abs)
@@ -77,13 +76,11 @@ def play_game(current_model: PolicyNetwork, opponent_model: PolicyNetwork, max_s
     
     pbar.close()
 
-    game_result = compute_game_result(game_state)
-    current_model_won = (game_result.winner == current_model_color)
+    game_result = compute_game_result(game_state) # 获得对局结果
+    current_model_won = (game_result.winner == current_model_color) # 当前模型是否获胜
     z_t = 1.0 if current_model_won else -1.0
-    final_loss = torch.stack(training_losses_abs).mean() * z_t
-
-    if sgf_filepath:
-        save_game_to_sgf(moves, game_result.winner, sgf_filepath, current_model_color)
+    final_loss = torch.stack(training_losses_abs).mean() * z_t # 计算最终loss
+    if sgf_filepath: save_game_to_sgf(moves, game_result.winner, sgf_filepath, current_model_color) # 保存对局为sgf文件
 
     return final_loss, current_model_won
 

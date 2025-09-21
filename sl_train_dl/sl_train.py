@@ -89,7 +89,7 @@ def main():
             
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
-                save_path = f'{args.ckpt_dir}/winner_12_192.pth'
+                save_path = f'{args.ckpt_dir}/AI_12_192.pth'
                 torch.save({'model_state_dict': model.module.state_dict(), 'args': args}, save_path)
                 print(f"--> 新的最佳模型已保存至 {save_path} (Val Acc: {val_acc:.2f}%)")
 

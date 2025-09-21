@@ -11,10 +11,6 @@ from .game_player import play_game_worker
 def load_random_opponent(args):
     """加载对手模型状态字典到CPU。"""
     opponent_files = glob.glob(os.path.join(args.enemies_ckpt_dir, "*.pth"))
-    if not opponent_files:
-        print("Warning: No opponent models found. Using the current model as opponent.")
-        return None
-    
     opponent_ckpt_path = random.choice(opponent_files)
     print(f"Loading opponent: {opponent_ckpt_path}")
     checkpoint = torch.load(opponent_ckpt_path, map_location='cpu')
@@ -25,8 +21,10 @@ def train(model, args, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.rl_lr, weight_decay=1e-4)
     mp.set_start_method('spawn', force=True)
     print("multiprocessing start method set to 'spawn'.")
-    num_parallel_games = args.num_parallel
-    print(f"Hardware parallelism set to {num_parallel_games} games.")
+    
+    # 获取可用的GPU数量
+    num_gpus = torch.cuda.device_count(); print(f"Found {num_gpus} GPUs.")
+    num_parallel_games = args.num_parallel; print(f"Hardware parallelism set to {num_parallel_games} games.")
     accumulation_rounds = args.minibatch // num_parallel_games # 计算需要运行多少轮并行对弈才能凑够一个minibatch 
 
     for i in range(args.num_iterations):
@@ -44,9 +42,9 @@ def train(model, args, device):
         for round_num in range(accumulation_rounds):
             print(f"  > Starting accumulation round {round_num + 1}/{accumulation_rounds}...")
             
-            # 准备当前这一小批并行任务的参数
+            # 准备当前这一小批并行任务的参数，并将任务分配到不同的GPU
             task_args = [
-                (args, current_model_state, opponent_model_state, games_played + j, args.minibatch, i + 1, 0)
+                (args, current_model_state, opponent_model_state, games_played + j, args.minibatch, i + 1, j % num_gpus)
                 for j in range(num_parallel_games)
             ]
 

@@ -21,7 +21,7 @@ def parse_args():
                        help='训练轮数 (默认: 100)')
     parser.add_argument('--weight_decay', type=float, default=1e-4, 
                        help='权重衰减 (默认: 1e-4)')
-    parser.add_argument('--data_dirs', type=str, nargs='+', default=['GoDataset/AI_pt_2', 'GoDataset/Human_pt'], 
+    parser.add_argument('--data_dirs', type=str, nargs='+', default=['GoDataset/AI_pt', 'GoDataset/Human_pt'], 
                        help='数据集目录（一个或多个）')
     parser.add_argument('--scheduler', type=str, default='steplr')
     parser.add_argument('--ckpt_dir', type=str, default='ckpt/',
@@ -40,7 +40,7 @@ def parse_args():
     # self play 参数
     parser.add_argument('--enemies_ckpt_dir', type=str, default='ckpt/enemies/',
                         help='对手检查点保存目录')
-    parser.add_argument('--minibatch', type=int, default=16, help='每个minibatch的自对弈数量 (默认: 16)')
+    parser.add_argument('--minibatch', type=int, default=32, help='每个minibatch的自对弈数量')
     parser.add_argument('--max_step', type=int, default=360, help='最大自对弈手数')
     parser.add_argument('--save_enemy', type=int, default=20, help='每N个minibatch保存一个对手模型 (默认: 20)')
     parser.add_argument('--save_model', type=int, default=20, help='每N个minibatch保存一个自己的模型 (默认: 20)')
