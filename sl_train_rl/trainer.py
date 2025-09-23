@@ -48,6 +48,12 @@ def train(model, args, device):
                 for j in range(num_parallel_games)
             ]
 
+            # --- 调试时使用的代码 ---
+            # results = []
+            # for single_task_args in tqdm(task_args, desc=f"  Playing Round {round_num+1} (Debug Mode)"):
+            #     results.append(play_game_worker(single_task_args))
+            # -------------------------
+
             with mp.Pool(processes=num_parallel_games) as pool:
                 results = list(tqdm(pool.imap_unordered(play_game_worker, task_args), total=num_parallel_games, desc=f"  Playing Round {round_num+1}"))
 
@@ -60,7 +66,7 @@ def train(model, args, device):
 
         model.to(device)
         optimizer.zero_grad()
-        # 将所有收集到的梯度平均，并应用到主模型上
+        # 将所有收集到的梯度平均
         for i_param, param in enumerate(model.parameters()):
             if param.requires_grad:
                 grad_sum = torch.stack([batch[i_param] for batch in grad_batches if i_param < len(batch)]).sum(dim=0)

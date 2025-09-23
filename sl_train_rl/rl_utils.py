@@ -11,7 +11,6 @@ def game_state_to_tensor(next_player: Player, game_history: deque, board_size: i
     """
     # 假设模型需要12个历史状态，每个状态2个通道，加上当前状态的3个通道 = 27
     input_tensor = np.zeros((27, board_size, board_size), dtype=np.float32)
-    
     if not game_history: return torch.tensor(input_tensor, dtype=torch.float32).unsqueeze(0)
 
     # 第1-3维：当前状态 (T)

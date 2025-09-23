@@ -1,4 +1,3 @@
-
 import torch
 import os
 import sys
@@ -18,7 +17,6 @@ def main():
     args.num_iterations = 10000
     args.save_enemy = 50
     args.save_model = 100
-    args.max_step = 360
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")

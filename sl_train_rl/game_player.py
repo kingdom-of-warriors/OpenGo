@@ -12,7 +12,10 @@ from models.policy_networks import PolicyNetwork
 from .rl_utils import game_state_to_tensor, save_game_to_sgf
 from models.policy_networks import create_model
 
-def get_model_prediction(model: PolicyNetwork, game_state: GameState, game_history: deque, board_size: int, requires_grad: bool, device: torch.device):
+def get_model_prediction(model: PolicyNetwork, game_state: GameState, 
+                         game_history: deque, board_size: int, 
+                         requires_grad: bool, device: torch.device,
+                         temperature: float = 0.02):
     """输出模型的落子概率分布，屏蔽掉非法落子。"""
     input_tensor = game_state_to_tensor(game_state.next_player, game_history, board_size).to(device)
     move_probs = model.sample(input_tensor, requires_grad=requires_grad).squeeze(0)
@@ -21,20 +24,17 @@ def get_model_prediction(model: PolicyNetwork, game_state: GameState, game_histo
     for row in range(board_size):
         for col in range(board_size):
             point = Point(row + 1, col + 1)
-            if game_state.is_valid_move(Move.play(point)):
-                legal_mask[row * board_size + col] = 1.0
+            if not game_state.is_valid_move(Move.play(point)):
+                legal_mask[row * board_size + col] = -1e9
     
-    move_probs_new = move_probs * legal_mask
-    prob_sum = move_probs_new.sum()
-    if prob_sum > 1e-6:
-        move_probs_new = move_probs_new / prob_sum
-    else: # 如果没有合法走法，返回均匀分布
-        legal_mask.fill_(1.0 / (board_size * board_size))
-        return legal_mask
-
+    move_probs_new = move_probs + legal_mask
+    move_probs_new = torch.softmax(move_probs_new / temperature, dim=-1)
     return move_probs_new
 
-def play_game(current_model: PolicyNetwork, opponent_model: PolicyNetwork, max_step: int, board_size: int, device: torch.device, sgf_filepath: str = None):
+def play_game(current_model: PolicyNetwork, 
+              opponent_model: PolicyNetwork, 
+              max_step: int, board_size: int, 
+              device: torch.device, sgf_filepath: str = None):
     """执行一盘自我对弈，并返回对局数据。"""
     game_state = GameState.new_game(board_size)
     moves = []
@@ -62,7 +62,8 @@ def play_game(current_model: PolicyNetwork, opponent_model: PolicyNetwork, max_s
         active_model = players[game_state.next_player]
         requires_grad = (active_model == current_model) # 当前模型需要计算梯度
         move_probs = get_model_prediction(active_model, game_state, game_history, board_size, requires_grad, device)
-        move_idx = torch.multinomial(move_probs, 1).item() # 采样落子位置
+        move_idx = torch.multinomial(move_probs, 1).item() # 采样落子位置，增加棋局多样性
+
         # 计算该步的负对数似然loss
         if requires_grad:
             loss_abs = -torch.log(move_probs[move_idx] + 1e-8)
@@ -90,9 +91,14 @@ def play_game_worker(args_bundle):
     args, current_model_state, opponent_model_state, game_idx, total_games, iter_num, device_id = args_bundle
     device = torch.device(f"cuda:{device_id}")
 
+    # 为每个子进程设置随机种子
+    seed = os.getpid() + game_idx ** 2
+    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+
     # 在子进程的GPU上创建模型
     current_model = create_model(args, device)
     current_model.load_state_dict(current_model_state)
+    current_model.eval() # 一定要加！
 
     opponent_model = create_model(args, device)
     opponent_model.load_state_dict(opponent_model_state)

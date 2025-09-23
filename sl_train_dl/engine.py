@@ -59,7 +59,7 @@ def validate_epoch(model, val_loader, criterion, device):
             total += move_idx.size(0)
             correct += (predicted == move_idx).sum().item()
             
-    # ===> DDP变更: 同步验证集的统计数据 <===
+    # 同步验证集的统计数据
     stats = torch.tensor([total_loss, correct, total], dtype=torch.float32, device=device)
     dist.all_reduce(stats, op=dist.ReduceOp.SUM)
     
@@ -70,5 +70,4 @@ def validate_epoch(model, val_loader, criterion, device):
     avg_loss = total_loss_global / total_global if total_global > 0 else 0
     accuracy = 100. * correct_global / total_global if total_global > 0 else 0
     
-    # 只有主进程需要返回准确的指标用于打印和保存
     return avg_loss, accuracy
