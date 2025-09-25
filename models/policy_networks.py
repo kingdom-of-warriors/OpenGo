@@ -88,8 +88,8 @@ class PolicyNetwork(nn.Module):
         symmetries = torch.stack([tfm(x) for tfm in TFMs.values()]) # [8, N, C, H, W]
         batch_x = symmetries.view(-1, c, h, w) # [8*N, C, H, W]
         batch_logits = self.forward(batch_x)
-        batch_probs = F.softmax(batch_logits, dim=1)
-        probs_by_symmetry = batch_probs.view(8, n, -1) # [8, N, H*W]
+        # batch_probs = F.softmax(batch_logits, dim=1)
+        probs_by_symmetry = batch_logits.view(8, n, -1) # [8, N, H*W]
 
         untransformed_probs = []
         for i, inv_tfm in enumerate(INV_TFMs.values()):
@@ -117,7 +117,7 @@ class ValueNetwork(nn.Module):
         self.res_blocks = nn.Sequential(
             *[ResidualBlock(num_filters) for _ in range(num_residual_blocks)]
         )
-        ##################### 以上与策略网络相同  下面是价值头#############################
+        ##################### 以上与策略网络相同 下面是价值头#############################
         self.conv_value = nn.Conv2d(num_filters, 1, kernel_size=1, bias=False) # 转化为1通道
         self.bn_value = nn.BatchNorm2d(1)
         self.fc_value1 = nn.Linear(1 * board_size * board_size, 256)

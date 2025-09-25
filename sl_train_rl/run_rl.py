@@ -15,7 +15,7 @@ def main():
     args = parse_args()
     args.rl_lr = 5e-5 
     args.num_iterations = 10000
-    args.save_enemy = 50
+    args.save_enemy = 100
     args.save_model = 100
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

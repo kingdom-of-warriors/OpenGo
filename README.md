@@ -48,5 +48,12 @@ python data_utils/read.py --sgf_dir GoDataset/Human/ --output_dir GoDataset/Huma
     ```
 
 ### 强化学习训练策略网络
-
-
+将深度学习训练出来的权重复制一份放在 ckpt/enemies 文件夹下面，当作初始的对手模型，然后可以开始训练：
+一盘棋的所有自己模型的步数是需要保存计算图的，统计得到大概max_step为320时，需要12G显存。代码支持一张卡上跑多盘棋，
+--num_parallel：表示1张显卡上同时跑多少盘棋（根据显存计算，大约是 `num_gpus` * `显存`/12）
+--minibatch：表示一个minibatch多少盘棋（alphago是128）
+代码设置是可以在多张显卡上跑，显卡数量由 `torch.cuda.device_count()` 获得。
+下面是8张A800可行的训练代码：
+```bash
+python sl_train_rl/run_rl.py --ckpt_path ckpt/AI_12_192.pth --num_parallel 32 --minibatch 32
+```

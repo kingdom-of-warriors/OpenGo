@@ -51,10 +51,8 @@ def save_game_to_sgf(moves: list, winner: Player, sgf_filepath: str, current_mod
     sgf_content = "(;FF[4]CA[UTF-8]GM[1]SZ[19]\n"
     result = "B+R" if winner == Player.black else "W+R"
     sgf_content += f"RE[{result}]\n"
-    if current_model_color == Player.black:
-        sgf_content += "PB[current_model]\nPW[opponent_model]\n"
-    else:
-        sgf_content += "PB[opponent_model]\nPW[current_model]\n"
+    if current_model_color == Player.black: sgf_content += "PB[current_model]\nPW[opponent_model]\n"
+    else: sgf_content += "PB[opponent_model]\nPW[current_model]\n"
 
     # 写入着法
     for i, move in enumerate(moves):

@@ -24,8 +24,9 @@ def train(model, args, device):
     
     # 获取可用的GPU数量
     num_gpus = torch.cuda.device_count(); print(f"Found {num_gpus} GPUs.")
-    num_parallel_games = args.num_parallel; print(f"Hardware parallelism set to {num_parallel_games} games.")
-    accumulation_rounds = args.minibatch // num_parallel_games # 计算需要运行多少轮并行对弈才能凑够一个minibatch 
+    num_parallel = args.num_parallel; print(f"Hardware parallelism set to {num_parallel} games.")
+    total_games_per_round = num_gpus * num_parallel; print(f"Total games per round are {total_games_per_round}.") # 每轮并行对弈的总数量
+    accumulation_rounds = args.minibatch // total_games_per_round # 运行多少轮才能够一个minibatch 
 
     for i in range(args.num_iterations):
         print(f"--- Iteration {i + 1}/{args.num_iterations} ---")
@@ -45,24 +46,24 @@ def train(model, args, device):
             # 准备当前这一小批并行任务的参数，并将任务分配到不同的GPU
             task_args = [
                 (args, current_model_state, opponent_model_state, games_played + j, args.minibatch, i + 1, j % num_gpus)
-                for j in range(num_parallel_games)
+                for j in range(total_games_per_round)
             ]
 
-            # --- 调试时使用的代码 ---
+            # --- ipdb调试时使用的代码 ---
             # results = []
             # for single_task_args in tqdm(task_args, desc=f"  Playing Round {round_num+1} (Debug Mode)"):
             #     results.append(play_game_worker(single_task_args))
             # -------------------------
 
-            with mp.Pool(processes=num_parallel_games) as pool:
-                results = list(tqdm(pool.imap_unordered(play_game_worker, task_args), total=num_parallel_games, desc=f"  Playing Round {round_num+1}"))
+            with mp.Pool(processes=total_games_per_round) as pool:
+                results = list(tqdm(pool.imap_unordered(play_game_worker, task_args), total=total_games_per_round, desc=f"  Playing Round {round_num+1}"))
 
             for grads, loss_val, won in results:
                 grad_batches.append(grads)
                 total_loss_val += loss_val
                 if won: total_wins += 1
             
-            games_played += num_parallel_games
+            games_played += total_games_per_round
 
         model.to(device)
         optimizer.zero_grad()

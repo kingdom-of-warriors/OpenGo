@@ -66,7 +66,7 @@ class GoDataset(torch.utils.data.Dataset):
             'color': color,
         }
     
-class WinnerDataset(torch.utils.data.Dataset):
+class ValueDataset(torch.utils.data.Dataset):
     def __init__(self, data_dir: str, data_num: int = 2, enable_augmentation: bool = False):
         self.enable_augmentation = enable_augmentation
         self.data = self._load_data(data_dir, data_num)

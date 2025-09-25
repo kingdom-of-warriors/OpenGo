@@ -15,20 +15,25 @@ from models.policy_networks import create_model
 def get_model_prediction(model: PolicyNetwork, game_state: GameState, 
                          game_history: deque, board_size: int, 
                          requires_grad: bool, device: torch.device,
-                         temperature: float = 0.02):
+                         temperature: float = 0.2):
     """输出模型的落子概率分布，屏蔽掉非法落子。"""
-    input_tensor = game_state_to_tensor(game_state.next_player, game_history, board_size).to(device)
+    input_tensor = game_state_to_tensor(game_state.next_player, 
+                                        game_history, board_size).to(device)
     move_probs = model.sample(input_tensor, requires_grad=requires_grad).squeeze(0)
-    
+    invalid_move = 0
     legal_mask = torch.zeros_like(move_probs)
     for row in range(board_size):
         for col in range(board_size):
             point = Point(row + 1, col + 1)
             if not game_state.is_valid_move(Move.play(point)):
-                legal_mask[row * board_size + col] = -1e9
-    
+                legal_mask[row * board_size + col] = -float('inf')
+                invalid_move += 1 # 计算不合法的步数
+
+    if invalid_move == 19 * 19: # 没有合法的位置
+        return None 
     move_probs_new = move_probs + legal_mask
     move_probs_new = torch.softmax(move_probs_new / temperature, dim=-1)
+
     return move_probs_new
 
 def play_game(current_model: PolicyNetwork, 
@@ -42,13 +47,17 @@ def play_game(current_model: PolicyNetwork,
     training_losses_abs = []
 
     if random.random() < 0.5:
-        players = {Player.white: current_model, Player.black: opponent_model}
+        players = {Player.white: current_model, 
+                   Player.black: opponent_model}
         current_model_color = Player.white
     else:
-        players = {Player.black: current_model, Player.white: opponent_model}
+        players = {Player.black: current_model, 
+                   Player.white: opponent_model}
         current_model_color = Player.black
 
-    pbar = tqdm(total=max_step, desc="Game Progress", leave=False, bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} steps') # 进度条
+    pbar = tqdm(total=max_step, desc="Game Progress", leave=False, 
+                bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} steps') # 进度条
+    
     for step_count in range(max_step):
         current_board = np.zeros((board_size, board_size), dtype=np.int8)
         # 获得当下局面黑白棋子位置 并加入history中
@@ -61,7 +70,12 @@ def play_game(current_model: PolicyNetwork,
 
         active_model = players[game_state.next_player]
         requires_grad = (active_model == current_model) # 当前模型需要计算梯度
-        move_probs = get_model_prediction(active_model, game_state, game_history, board_size, requires_grad, device)
+        move_probs = get_model_prediction(active_model, game_state, 
+                                          game_history, board_size, 
+                                          requires_grad, device)
+        if move_probs is None: # 返回none说明没有合法的走法
+            print("没有合法走法，终止对弈。")
+            break
         move_idx = torch.multinomial(move_probs, 1).item() # 采样落子位置，增加棋局多样性
 
         # 计算该步的负对数似然loss
@@ -81,7 +95,8 @@ def play_game(current_model: PolicyNetwork,
     current_model_won = (game_result.winner == current_model_color) # 当前模型是否获胜
     z_t = 1.0 if current_model_won else -1.0
     final_loss = torch.stack(training_losses_abs).mean() * z_t # 计算最终loss
-    if sgf_filepath: save_game_to_sgf(moves, game_result.winner, sgf_filepath, current_model_color) # 保存对局为sgf文件
+    if sgf_filepath: save_game_to_sgf(moves, game_result.winner, 
+                                      sgf_filepath, current_model_color) # 保存对局为sgf文件
 
     return final_loss, current_model_won
 
