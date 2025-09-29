@@ -48,13 +48,7 @@ def train(model, args, device):
                 (args, current_model_state, opponent_model_state, games_played + j, args.minibatch, i + 1, j % num_gpus)
                 for j in range(total_games_per_round)
             ]
-
-            # --- ipdb调试时使用的代码 ---
-            # results = []
-            # for single_task_args in tqdm(task_args, desc=f"  Playing Round {round_num+1} (Debug Mode)"):
-            #     results.append(play_game_worker(single_task_args))
-            # -------------------------
-
+            
             with mp.Pool(processes=total_games_per_round) as pool:
                 results = list(tqdm(pool.imap_unordered(play_game_worker, task_args), total=total_games_per_round, desc=f"  Playing Round {round_num+1}"))
 

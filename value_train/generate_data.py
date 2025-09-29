@@ -152,7 +152,7 @@ def generate_data(args, device, sl_model, rl_model):
         states_tensor = torch.stack(batch_states).squeeze(1).to(device) # [bs, 27, 19, 19]
         outcomes_tensor = torch.tensor(batch_outcomes, dtype=torch.float32).unsqueeze(1).to(device) # [bs, 1]
 
-        file_path = os.path.join(output_dir, f"value_batch_{step}.pt")
+        file_path = os.path.join(output_dir, f"value_batch_{step + 84}.pt")
         torch.save({'states': states_tensor,
                     'outcomes': outcomes_tensor}, file_path)
         tqdm.write(f"批次 {step+1} 已保存至: {file_path} (包含 {len(states_tensor)} 个样本)")

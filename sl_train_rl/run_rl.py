@@ -13,7 +13,7 @@ from sl_train_rl.trainer import train
 def main():
     """主函数：初始化并启动训练。"""
     args = parse_args()
-    args.rl_lr = 5e-5 
+    args.rl_lr = 1e-6
     args.num_iterations = 10000
     args.save_enemy = 100
     args.save_model = 100

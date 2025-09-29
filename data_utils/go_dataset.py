@@ -67,27 +67,26 @@ class GoDataset(torch.utils.data.Dataset):
         }
     
 class ValueDataset(torch.utils.data.Dataset):
-    def __init__(self, data_dir: str, data_num: int = 2, enable_augmentation: bool = False):
+    def __init__(self, data_dir: str, data_num: int = 2, board_size: int = 19, enable_augmentation: bool = False):
         self.enable_augmentation = enable_augmentation
         self.data = self._load_data(data_dir, data_num)
-        self.board_size = 19
+        self.board_size = board_size
     def _load_data(self, data_dir: str, data_num: int) -> List[Dict[str, Any]]:
         """从指定路径加载围棋数据集"""
         all_data = []
         for i in range(data_num):
-            boards_file = os.path.join(data_dir, f"boards_batch_{i}.pt")
-            winners_file = os.path.join(data_dir, f"winner_batch_{i}.pt")
-            boards, winners = torch.load(boards_file), torch.load(winners_file)
-            for j in range(len(boards)):
-                all_data.append({'board': boards[j], 'winner': winners[j].item()})
+            data_file = os.path.join(data_dir, f"value_batch_{i}.pt")
+            states, outcomes = torch.load(data_file)['states'], torch.load(data_file)['outcomes']
+            for j in range(len(states)):
+                all_data.append({'states': states[j], 'outcomes': outcomes[j]})
         return all_data
     
     def __len__(self) -> int: return len(self.data)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         sample = self.data[idx]
-        board, winner = sample['board'], sample['winner']
+        states, outcomes = sample['states'], sample['outcomes']
         
         if self.enable_augmentation:
-            board, _ = GoDataset._apply_augmentation(self, board, 0)
-        return {'board': board.float(), 'move': winner}
+            states, _ = GoDataset._apply_augmentation(self, states, 0)
+        return {'states': states, 'outcomes': outcomes}

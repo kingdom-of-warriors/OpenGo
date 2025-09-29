@@ -79,17 +79,17 @@ class PolicyNetwork(nn.Module):
 
         return policy_logits
 
-    def sample_rl(self, x: torch.Tensor):
+    def sample_rl(self, x: torch.Tensor, temperature: float = 0.2) -> torch.Tensor:
         """
-        利用8种对称性来增强预测并输出概率
+        利用8种对称性来增强预测并输出归一化的概率
         支持批处理输入 (N, C, H, W)。
         """
         n, c, h, w = x.shape
         symmetries = torch.stack([tfm(x) for tfm in TFMs.values()]) # [8, N, C, H, W]
         batch_x = symmetries.view(-1, c, h, w) # [8*N, C, H, W]
         batch_logits = self.forward(batch_x)
-        # batch_probs = F.softmax(batch_logits, dim=1)
-        probs_by_symmetry = batch_logits.view(8, n, -1) # [8, N, H*W]
+        batch_probs = F.softmax(batch_logits / temperature, dim=1)
+        probs_by_symmetry = batch_probs.view(8, n, -1) # [8, N, H*W]
 
         untransformed_probs = []
         for i, inv_tfm in enumerate(INV_TFMs.values()):
@@ -100,12 +100,12 @@ class PolicyNetwork(nn.Module):
             
         return avg_probs
     
-    def sample(self, x: torch.Tensor, requires_grad: bool = False):
+    def sample(self, x: torch.Tensor, requires_grad: bool = False, temperature: float = 0.2) -> torch.Tensor:
         """根据requires_grad决定使用哪种采样方法。"""
         if requires_grad: 
-            return self.sample_rl(x)
+            return self.sample_rl(x, temperature)
         else: 
-            with torch.no_grad(): return self.sample_rl(x)
+            with torch.no_grad(): return self.sample_rl(x, temperature)
 
 
 class ValueNetwork(nn.Module):

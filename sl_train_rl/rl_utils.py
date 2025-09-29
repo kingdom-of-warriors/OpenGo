@@ -38,7 +38,7 @@ def game_state_to_tensor(next_player: Player, game_history: deque, board_size: i
     return torch.tensor(input_tensor, dtype=torch.float32).unsqueeze(0)
 
 def move_to_sgf_coord(move: Move) -> str:
-    """将 Move 对象转换为 SGF 坐标字符串，例如 'qd'。"""
+    """将 Move 对象转换为 SGF 坐标字符串"""
     if move.is_pass or move.is_resign:
         return ""
     col_str = "abcdefghijklmnopqrstuvwxy"[move.point.col - 1]
@@ -47,7 +47,6 @@ def move_to_sgf_coord(move: Move) -> str:
 
 def save_game_to_sgf(moves: list, winner: Player, sgf_filepath: str, current_model_color: Player):
     """将对局保存为 SGF 文件。"""
-    
     sgf_content = "(;FF[4]CA[UTF-8]GM[1]SZ[19]\n"
     result = "B+R" if winner == Player.black else "W+R"
     sgf_content += f"RE[{result}]\n"

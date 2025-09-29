@@ -38,13 +38,14 @@ def parse_args():
                     help='检查点文件路径')
     
     # self play 参数
-    parser.add_argument('--enemies_ckpt_dir', type=str, default='ckpt/enemies/',
-                        help='对手检查点保存目录')
+    parser.add_argument('--num_iterations', type=int, default=10000, help='总迭代次数')
+    parser.add_argument('--enemies_ckpt_dir', type=str, default='ckpt/enemies/', help='对手检查点保存目录')
     parser.add_argument('--minibatch', type=int, default=32, help='每个minibatch的自对弈数量')
     parser.add_argument('--max_step', type=int, default=360, help='最大自对弈手数')
     parser.add_argument('--save_enemy', type=int, default=100, help='每N个minibatch保存一个对手模型')
     parser.add_argument('--save_model', type=int, default=100, help='每N个minibatch保存一个自己的模型move')
-    parser.add_argument('--rl_lr', type=float, default=5e-5, help='强化学习学习率 (默认: 5e-5)')
+    parser.add_argument('--rl_lr', type=float, default=1e-6, help='强化学习学习率 (默认: 1e-6)')
     parser.add_argument('--num_parallel', type=int, default=4, help='一张显卡上并行自对弈的数量 (默认: 4)')
+    parser.add_argument('--save_sgf', action='store_true', help='是否在自我对弈时保存SGF棋谱文件 (默认: 不保存)')
 
     return parser.parse_args()
